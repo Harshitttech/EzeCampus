@@ -1,0 +1,6 @@
+{
+  "name": "EzeCampus",
+  "description": "One Platform. Every Campus Need. Unified student ecosystem for Bhilai accommodation discovery, AI roommate matching, campus marketplace, opportunities, local services, and AI campus assistance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,494 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Zero-lookup bootstrapped admin check safe for list queries (Pillar 8)
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'harshitkumar810271@gmail.com';
+    }
+
+    // Full admin check for single-document operations
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    // Validation Blueprints
+    function isValidUserAccount(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'phone', 'college', 'branch', 'year', 'city', 'role', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 120
+        && isValidOptionalString(data, 'phone', 20)
+        && isValidOptionalString(data, 'college', 120)
+        && isValidOptionalString(data, 'branch', 80)
+        && isValidOptionalString(data, 'year', 40)
+        && isValidOptionalString(data, 'city', 60)
+        && data.role in ['student', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoommateProfile(data, profileId) {
+      return data.keys().hasAll(['uid', 'displayName', 'college', 'budgetMax', 'foodPreference', 'sleepSchedule', 'studyHabit', 'cleanliness', 'lifestyle', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'college', 'branch', 'year', 'city', 'budgetMax', 'foodPreference', 'sleepSchedule', 'studyHabit', 'cleanliness', 'lifestyle', 'bio', 'isActive', 'isDemo', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == profileId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80
+        && data.college is string && data.college.size() >= 2 && data.college.size() <= 120
+        && isValidOptionalString(data, 'branch', 80)
+        && isValidOptionalString(data, 'year', 40)
+        && isValidOptionalString(data, 'city', 60)
+        && isValidOptionalString(data, 'bio', 400)
+        && data.budgetMax is number && data.budgetMax >= 1000 && data.budgetMax <= 100000
+        && data.foodPreference in ['veg', 'non-veg', 'eggetarian', 'flexible']
+        && data.sleepSchedule in ['early-bird', 'moderate', 'night-owl']
+        && data.studyHabit in ['silent', 'ambient', 'group']
+        && data.cleanliness in ['strict', 'tidy', 'relaxed']
+        && data.lifestyle in ['quiet', 'balanced', 'social']
+        && data.isActive is bool
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoommateRequest(data) {
+      return data.keys().hasAll(['senderUid', 'senderName', 'receiverUid', 'receiverName', 'message', 'compatibilityScore', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['senderUid', 'senderName', 'receiverUid', 'receiverName', 'message', 'compatibilityScore', 'status', 'createdAt', 'updatedAt'])
+        && data.senderUid is string && isValidId(data.senderUid)
+        && data.receiverUid is string && isValidId(data.receiverUid)
+        && data.senderUid != data.receiverUid
+        && data.senderName is string && data.senderName.size() >= 2 && data.senderName.size() <= 80
+        && data.receiverName is string && data.receiverName.size() >= 2 && data.receiverName.size() <= 80
+        && data.message is string && data.message.size() >= 5 && data.message.size() <= 400
+        && data.compatibilityScore is number && data.compatibilityScore >= 0 && data.compatibilityScore <= 100
+        && data.status in ['pending', 'accepted', 'declined', 'withdrawn']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAccommodation(data) {
+      return data.keys().hasAll(['title', 'type', 'locality', 'rent', 'deposit', 'roomType', 'genderPreference', 'amenities', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'type', 'locality', 'address', 'rent', 'deposit', 'roomType', 'genderPreference', 'amenities', 'description', 'ownerName', 'distanceToCampus', 'imageUrl', 'status', 'isDemo', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 120
+        && data.type in ['PG', 'Hostel', 'Rental Room']
+        && data.locality is string && data.locality.size() >= 2 && data.locality.size() <= 80
+        && isValidOptionalString(data, 'address', 200)
+        && data.rent is number && data.rent >= 500 && data.rent <= 200000
+        && data.deposit is number && data.deposit >= 0 && data.deposit <= 500000
+        && data.roomType in ['Single', 'Double Sharing', 'Triple Sharing', '1RK Studio']
+        && data.genderPreference in ['Boys', 'Girls', 'Co-ed']
+        && data.amenities is list && data.amenities.size() <= 15 && (data.amenities.size() == 0 || data.amenities[0] is string)
+        && isValidOptionalString(data, 'description', 600)
+        && isValidOptionalString(data, 'ownerName', 80)
+        && isValidOptionalString(data, 'distanceToCampus', 60)
+        && isValidOptionalString(data, 'imageUrl', 300)
+        && data.status in ['active', 'archived']
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdBy is string && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMarketplaceItem(data) {
+      return data.keys().hasAll(['title', 'category', 'price', 'condition', 'description', 'locality', 'sellerUid', 'sellerName', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'category', 'price', 'condition', 'description', 'locality', 'sellerUid', 'sellerName', 'sellerCollege', 'imageUrl', 'status', 'isDemo', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 120
+        && data.category in ['Books', 'Electronics', 'Furniture', 'Stationery']
+        && data.price is number && data.price >= 0 && data.price <= 500000
+        && data.condition in ['Like New', 'Good', 'Fair']
+        && data.description is string && data.description.size() >= 10 && data.description.size() <= 600
+        && data.locality is string && data.locality.size() >= 2 && data.locality.size() <= 80
+        && data.sellerUid is string && isValidId(data.sellerUid)
+        && data.sellerName is string && data.sellerName.size() >= 2 && data.sellerName.size() <= 80
+        && isValidOptionalString(data, 'sellerCollege', 120)
+        && isValidOptionalString(data, 'imageUrl', 300)
+        && data.status in ['available', 'sold', 'removed']
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCampusOpportunity(data) {
+      return data.keys().hasAll(['title', 'category', 'organizer', 'deadline', 'location', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'category', 'organizer', 'deadline', 'reward', 'location', 'registrationUrl', 'description', 'status', 'isDemo', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.category in ['Event', 'Hackathon', 'Coding Competition', 'Internship', 'Workshop', 'Scholarship', 'Club']
+        && data.organizer is string && data.organizer.size() >= 2 && data.organizer.size() <= 100
+        && data.deadline is string && data.deadline.size() >= 4 && data.deadline.size() <= 40
+        && isValidOptionalString(data, 'reward', 80)
+        && data.location is string && data.location.size() >= 2 && data.location.size() <= 100
+        && isValidOptionalString(data, 'registrationUrl', 300)
+        && isValidOptionalString(data, 'description', 600)
+        && data.status in ['active', 'archived']
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdBy is string && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLocalService(data) {
+      return data.keys().hasAll(['name', 'category', 'locality', 'timings', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'category', 'locality', 'timings', 'priceRange', 'distanceToCampus', 'description', 'status', 'isDemo', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && data.category in ['Food & Mess', 'Stationery', 'Printing', 'Laundry', 'Medical', 'Transport', 'Study Space']
+        && data.locality is string && data.locality.size() >= 2 && data.locality.size() <= 80
+        && data.timings is string && data.timings.size() >= 3 && data.timings.size() <= 80
+        && isValidOptionalString(data, 'priceRange', 60)
+        && isValidOptionalString(data, 'distanceToCampus', 60)
+        && isValidOptionalString(data, 'description', 400)
+        && data.status in ['active', 'archived']
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdBy is string && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFavourite(data, userId) {
+      return data.keys().hasAll(['userId', 'targetId', 'targetType', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'targetId', 'targetType', 'createdAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.targetId is string && isValidId(data.targetId)
+        && data.targetType in ['accommodation', 'opportunity', 'service']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data, userId) {
+      return data.keys().hasAll(['userId', 'title', 'message', 'category', 'read', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'title', 'message', 'category', 'read', 'createdAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.message is string && data.message.size() >= 2 && data.message.size() <= 300
+        && data.category in ['roommate', 'marketplace', 'campus', 'system']
+        && data.read is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['senderUid', 'senderName', 'targetType', 'targetId', 'targetTitle', 'message', 'status', 'createdAt'])
+        && data.keys().hasOnly(['senderUid', 'senderName', 'targetType', 'targetId', 'targetTitle', 'message', 'status', 'createdAt'])
+        && data.senderUid is string && isValidId(data.senderUid)
+        && data.senderName is string && data.senderName.size() >= 2 && data.senderName.size() <= 80
+        && data.targetType in ['accommodation', 'marketplace']
+        && data.targetId is string && isValidId(data.targetId)
+        && data.targetTitle is string && data.targetTitle.size() >= 2 && data.targetTitle.size() <= 120
+        && data.message is string && data.message.size() >= 5 && data.message.size() <= 500
+        && data.status in ['sent', 'reviewed']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['reporterUid', 'targetType', 'targetId', 'targetTitle', 'reason', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['reporterUid', 'targetType', 'targetId', 'targetTitle', 'reason', 'status', 'createdAt', 'updatedAt'])
+        && data.reporterUid is string && isValidId(data.reporterUid)
+        && data.targetType in ['accommodation', 'marketplace', 'opportunity', 'service', 'profile']
+        && data.targetId is string && isValidId(data.targetId)
+        && data.targetTitle is string && data.targetTitle.size() >= 2 && data.targetTitle.size() <= 120
+        && data.reason is string && data.reason.size() >= 5 && data.reason.size() <= 400
+        && data.status in ['open', 'resolved', 'dismissed']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Admins collection (read own status or admin; client writes blocked)
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Private user accounts (PII isolated)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId) && incoming().role == 'student' && incoming().email == request.auth.token.email) ||
+          isAdmin()
+        );
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().email == existing().email
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'college', 'branch', 'year', 'city', 'updatedAt'])) ||
+          (isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'college', 'branch', 'year', 'city', 'role', 'updatedAt']))
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+
+      // User Favourites subcollection (Master Gate parent check)
+      match /favourites/{favId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(favId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin()) && resource.data.userId == userId;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(favId)
+          && isValidFavourite(incoming(), userId)
+          && incoming().createdAt == request.time
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(favId) && (isOwner(userId) || isAdmin());
+      }
+
+      // User Notifications subcollection (Master Gate parent check)
+      match /notifications/{notifId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(notifId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin()) && resource.data.userId == userId;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(notifId)
+          && isValidNotification(incoming(), userId)
+          && incoming().createdAt == request.time
+          && (isOwner(userId) || isAdmin())
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(notifId)
+          && isValidNotification(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && (
+            (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read'])) ||
+            isAdmin()
+          );
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(notifId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // Public roommate profiles (no PII)
+    match /roommateProfiles/{profileId} {
+      allow get: if isSignedIn() && isValidId(profileId) && (existing().isActive == true || isOwner(profileId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.isActive == true || resource.data.uid == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(profileId)
+        && isValidRoommateProfile(incoming(), profileId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(profileId) || isAdmin());
+      allow update: if isVerifiedUser()
+        && isValidId(profileId)
+        && isValidRoommateProfile(incoming(), profileId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(profileId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'college', 'branch', 'year', 'city', 'budgetMax', 'foodPreference', 'sleepSchedule', 'studyHabit', 'cleanliness', 'lifestyle', 'bio', 'isActive', 'updatedAt'])) ||
+          isAdmin()
+        );
+      allow delete: if isVerifiedUser() && isValidId(profileId) && (isOwner(profileId) || isAdmin());
+    }
+
+    // Roommate Requests (scoped to sender & receiver + terminal state lock)
+    match /roommateRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) && (
+        existing().senderUid == request.auth.uid ||
+        existing().receiverUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.senderUid == request.auth.uid ||
+        resource.data.receiverUid == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isVerifiedUser()
+        && isValidId(requestId)
+        && isValidRoommateRequest(incoming())
+        && incoming().senderUid == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(requestId)
+        && isValidRoommateRequest(incoming())
+        && incoming().senderUid == existing().senderUid
+        && incoming().receiverUid == existing().receiverUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (existing().status == 'pending'
+            && existing().receiverUid == request.auth.uid
+            && incoming().status in ['accepted', 'declined']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          (existing().status == 'pending'
+            && existing().senderUid == request.auth.uid
+            && incoming().status == 'withdrawn'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
+      allow delete: if isAdmin() && isValidId(requestId);
+    }
+
+    // Accommodations catalog (public active listings; admin-managed writes)
+    match /accommodations/{accommodationId} {
+      allow get: if isValidId(accommodationId) && (existing().status == 'active' || isAdmin());
+      allow list: if resource.data.status == 'active' || isBootstrappedAdmin();
+      allow create: if isAdmin()
+        && isValidId(accommodationId)
+        && isValidAccommodation(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(accommodationId)
+        && isValidAccommodation(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'locality', 'address', 'rent', 'deposit', 'roomType', 'genderPreference', 'amenities', 'description', 'ownerName', 'distanceToCampus', 'imageUrl', 'status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(accommodationId);
+    }
+
+    // Student Marketplace (student CRUD on own items + admin moderation)
+    match /marketplaceItems/{itemId} {
+      allow get: if isValidId(itemId) && (existing().status == 'available' || existing().status == 'sold' || (isSignedIn() && existing().sellerUid == request.auth.uid) || isAdmin());
+      allow list: if resource.data.status == 'available' || resource.data.status == 'sold' || (isSignedIn() && resource.data.sellerUid == request.auth.uid) || isBootstrappedAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(itemId)
+        && isValidMarketplaceItem(incoming())
+        && incoming().sellerUid == request.auth.uid
+        && incoming().status == 'available'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(itemId)
+        && isValidMarketplaceItem(incoming())
+        && incoming().sellerUid == existing().sellerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (existing().sellerUid == request.auth.uid
+            && existing().status != 'removed'
+            && incoming().status in ['available', 'sold']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'price', 'condition', 'description', 'locality', 'sellerCollege', 'imageUrl', 'status', 'updatedAt']))
+        );
+      allow delete: if isVerifiedUser() && isValidId(itemId) && (existing().sellerUid == request.auth.uid || isAdmin());
+    }
+
+    // Campus Opportunities (events, hackathons, internships, scholarships)
+    match /campusOpportunities/{opportunityId} {
+      allow get: if isValidId(opportunityId) && (existing().status == 'active' || isAdmin());
+      allow list: if resource.data.status == 'active' || isBootstrappedAdmin();
+      allow create: if isAdmin()
+        && isValidId(opportunityId)
+        && isValidCampusOpportunity(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(opportunityId)
+        && isValidCampusOpportunity(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'organizer', 'deadline', 'reward', 'location', 'registrationUrl', 'description', 'status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(opportunityId);
+    }
+
+    // Local Services (Bhilai student services)
+    match /localServices/{serviceId} {
+      allow get: if isValidId(serviceId) && (existing().status == 'active' || isAdmin());
+      allow list: if resource.data.status == 'active' || isBootstrappedAdmin();
+      allow create: if isAdmin()
+        && isValidId(serviceId)
+        && isValidLocalService(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(serviceId)
+        && isValidLocalService(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'locality', 'timings', 'priceRange', 'distanceToCampus', 'description', 'status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(serviceId);
+    }
+
+    // Student Inquiries (contact owner / seller)
+    match /inquiries/{inquiryId} {
+      allow get: if isSignedIn() && isValidId(inquiryId) && (existing().senderUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.senderUid == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(inquiryId)
+        && isValidInquiry(incoming())
+        && incoming().senderUid == request.auth.uid
+        && incoming().status == 'sent'
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(inquiryId)
+        && isValidInquiry(incoming())
+        && incoming().senderUid == existing().senderUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isAdmin() && isValidId(inquiryId);
+    }
+
+    // Content Moderation Reports
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && (existing().reporterUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.reporterUid == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(reportId)
+        && isValidReport(incoming())
+        && incoming().reporterUid == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(reportId)
+        && isValidReport(incoming())
+        && incoming().reporterUid == existing().reporterUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(reportId);
+    }
+  }
+}

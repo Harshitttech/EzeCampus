@@ -1,0 +1,258 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Private student or administrator account containing PII isolated to owner and admins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "college": { "type": "string", "maxLength": 120 },
+        "branch": { "type": "string", "maxLength": 80 },
+        "year": { "type": "string", "maxLength": 40 },
+        "city": { "type": "string", "maxLength": 60 },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "role", "createdAt", "updatedAt"]
+    },
+    "RoommateProfile": {
+      "title": "RoommateProfile",
+      "description": "Public student lifestyle and preference profile used for AI roommate compatibility scoring without exposing private contact PII.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "college": { "type": "string", "maxLength": 120 },
+        "branch": { "type": "string", "maxLength": 80 },
+        "year": { "type": "string", "maxLength": 40 },
+        "city": { "type": "string", "maxLength": 60 },
+        "budgetMax": { "type": "number" },
+        "foodPreference": { "type": "string", "enum": ["veg", "non-veg", "eggetarian", "flexible"] },
+        "sleepSchedule": { "type": "string", "enum": ["early-bird", "moderate", "night-owl"] },
+        "studyHabit": { "type": "string", "enum": ["silent", "ambient", "group"] },
+        "cleanliness": { "type": "string", "enum": ["strict", "tidy", "relaxed"] },
+        "lifestyle": { "type": "string", "enum": ["quiet", "balanced", "social"] },
+        "bio": { "type": "string", "maxLength": 400 },
+        "isActive": { "type": "boolean" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "college", "budgetMax", "foodPreference", "sleepSchedule", "studyHabit", "cleanliness", "lifestyle", "isActive", "createdAt", "updatedAt"]
+    },
+    "RoommateRequest": {
+      "title": "RoommateRequest",
+      "description": "Connection request between two students for roommate pairing.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "receiverUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "receiverName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 400 },
+        "compatibilityScore": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined", "withdrawn"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderUid", "senderName", "receiverUid", "receiverName", "message", "compatibilityScore", "status", "createdAt", "updatedAt"]
+    },
+    "Accommodation": {
+      "title": "Accommodation",
+      "description": "PG, hostel, or rental room listing around Bhilai.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "type": { "type": "string", "enum": ["PG", "Hostel", "Rental Room"] },
+        "locality": { "type": "string", "maxLength": 80 },
+        "address": { "type": "string", "maxLength": 200 },
+        "rent": { "type": "number" },
+        "deposit": { "type": "number" },
+        "roomType": { "type": "string", "enum": ["Single", "Double Sharing", "Triple Sharing", "1RK Studio"] },
+        "genderPreference": { "type": "string", "enum": ["Boys", "Girls", "Co-ed"] },
+        "amenities": { "type": "array" },
+        "description": { "type": "string", "maxLength": 600 },
+        "ownerName": { "type": "string", "maxLength": 80 },
+        "distanceToCampus": { "type": "string", "maxLength": 60 },
+        "imageUrl": { "type": "string", "maxLength": 300 },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "isDemo": { "type": "boolean" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "locality", "rent", "deposit", "roomType", "genderPreference", "amenities", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "MarketplaceItem": {
+      "title": "MarketplaceItem",
+      "description": "Used book, electronics, furniture, or stationery listing created by students.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "category": { "type": "string", "enum": ["Books", "Electronics", "Furniture", "Stationery"] },
+        "price": { "type": "number" },
+        "condition": { "type": "string", "enum": ["Like New", "Good", "Fair"] },
+        "description": { "type": "string", "minLength": 10, "maxLength": 600 },
+        "locality": { "type": "string", "maxLength": 80 },
+        "sellerUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sellerName": { "type": "string", "maxLength": 80 },
+        "sellerCollege": { "type": "string", "maxLength": 120 },
+        "imageUrl": { "type": "string", "maxLength": 300 },
+        "status": { "type": "string", "enum": ["available", "sold", "removed"] },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "price", "condition", "description", "locality", "sellerUid", "sellerName", "status", "createdAt", "updatedAt"]
+    },
+    "CampusOpportunity": {
+      "title": "CampusOpportunity",
+      "description": "College event, hackathon, coding competition, internship, workshop, scholarship, or club listing.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "category": { "type": "string", "enum": ["Event", "Hackathon", "Coding Competition", "Internship", "Workshop", "Scholarship", "Club"] },
+        "organizer": { "type": "string", "maxLength": 100 },
+        "deadline": { "type": "string", "maxLength": 40 },
+        "reward": { "type": "string", "maxLength": 80 },
+        "location": { "type": "string", "maxLength": 100 },
+        "registrationUrl": { "type": "string", "maxLength": 300 },
+        "description": { "type": "string", "maxLength": 600 },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "isDemo": { "type": "boolean" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "organizer", "deadline", "location", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "LocalService": {
+      "title": "LocalService",
+      "description": "Nearby Bhilai student-essential service such as food outlet, stationery, printing, laundry, medical store, transport, or study space.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": { "type": "string", "enum": ["Food & Mess", "Stationery", "Printing", "Laundry", "Medical", "Transport", "Study Space"] },
+        "locality": { "type": "string", "maxLength": 80 },
+        "timings": { "type": "string", "maxLength": 80 },
+        "priceRange": { "type": "string", "maxLength": 60 },
+        "distanceToCampus": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 400 },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "isDemo": { "type": "boolean" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "locality", "timings", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "UserFavourite": {
+      "title": "UserFavourite",
+      "description": "Saved accommodation, bookmarked opportunity, or favourite local service owned by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetType": { "type": "string", "enum": ["accommodation", "opportunity", "service"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType", "createdAt"]
+    },
+    "UserNotification": {
+      "title": "UserNotification",
+      "description": "In-app notification owned by a specific student.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 120 },
+        "message": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "enum": ["roommate", "marketplace", "campus", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "category", "read", "createdAt"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Student inquiry sent to an accommodation owner or marketplace seller.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "maxLength": 80 },
+        "targetType": { "type": "string", "enum": ["accommodation", "marketplace"] },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetTitle": { "type": "string", "maxLength": 120 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 500 },
+        "status": { "type": "string", "enum": ["sent", "reviewed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderUid", "senderName", "targetType", "targetId", "targetTitle", "message", "status", "createdAt"]
+    },
+    "ContentReport": {
+      "title": "ContentReport",
+      "description": "User-submitted report for admin moderation.",
+      "type": "object",
+      "properties": {
+        "reporterUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetType": { "type": "string", "enum": ["accommodation", "marketplace", "opportunity", "service", "profile"] },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetTitle": { "type": "string", "maxLength": 120 },
+        "reason": { "type": "string", "minLength": 5, "maxLength": 400 },
+        "status": { "type": "string", "enum": ["open", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterUid", "targetType", "targetId", "targetTitle", "reason", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Private student and admin accounts with isolated PII."
+    },
+    "/users/{userId}/favourites/{favId}": {
+      "schema": { "$ref": "#/entities/UserFavourite" },
+      "description": "Per-user saved accommodations, opportunities, and services."
+    },
+    "/users/{userId}/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/UserNotification" },
+      "description": "Per-user notifications feed."
+    },
+    "/roommateProfiles/{profileId}": {
+      "schema": { "$ref": "#/entities/RoommateProfile" },
+      "description": "Public student preference profiles for compatibility matching."
+    },
+    "/roommateRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/RoommateRequest" },
+      "description": "Peer-to-peer roommate requests scoped to sender and receiver."
+    },
+    "/accommodations/{accommodationId}": {
+      "schema": { "$ref": "#/entities/Accommodation" },
+      "description": "Bhilai PG, hostel, and rental room listings."
+    },
+    "/marketplaceItems/{itemId}": {
+      "schema": { "$ref": "#/entities/MarketplaceItem" },
+      "description": "Student buy-and-sell marketplace items."
+    },
+    "/campusOpportunities/{opportunityId}": {
+      "schema": { "$ref": "#/entities/CampusOpportunity" },
+      "description": "College events, hackathons, internships, scholarships, and clubs."
+    },
+    "/localServices/{serviceId}": {
+      "schema": { "$ref": "#/entities/LocalService" },
+      "description": "Student-essential local services in Bhilai."
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/Inquiry" },
+      "description": "Contact requests sent by students to property owners or item sellers."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ContentReport" },
+      "description": "Content moderation reports reviewed by administrators."
+    }
+  }
+}
